@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Newton-Raphson Method — Interactive Root Finder</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">f&#8242;</div>
+        <div>
+          <h1>Newton-Raphson Method</h1>
+          <p class="subtitle">Interactive numerical root-finding visualizer &amp; step-by-step solver</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" id="theme-toggle" class="btn btn-ghost" aria-label="Toggle dark mode">
+          <span id="theme-icon" aria-hidden="true">&#9790;</span>
+          <span id="theme-label">Dark Mode</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Alert Banner -->
+    <div id="alert-banner" class="alert hidden" role="alert" aria-live="polite">
+      <span id="alert-icon" class="alert-icon" aria-hidden="true">!</span>
+      <div id="alert-text" class="alert-text"></div>
+    </div>
+
+    <!-- Top Grid: Controls + Formula & Convergence -->
+    <section class="top-grid">
+      <!-- Input Card -->
+      <article class="card controls-card">
+        <div class="card-header">
+          <h2>Parameters &amp; Function</h2>
+          <span class="pill">Root Solver</span>
+        </div>
+
+        <form id="solver-form" class="solver-form" novalidate>
+          <div class="field">
+            <label for="func-input">Function <span class="math-inline">f(x)</span></label>
+            <input
+              type="text"
+              id="func-input"
+              value="x^4 - 11*x + 8"
+              placeholder="e.g. x^4 - 11*x + 8"
+              autocomplete="off"
+              spellcheck="false"
+              required
+            />
+            <div class="presets-row" role="group" aria-label="Lecture preset functions">
+              <span class="presets-label">Lecture Examples:</span>
+              <button type="button" class="preset-chip active" data-fn="x^4 - 11*x + 8" data-x0="2" data-tol="0.0001" data-max="15" title="Lecture Example (p. 7), x0 = 2">x&#8308; &minus; 11x + 8</button>
+              <button type="button" class="preset-chip" data-fn="x^3 - 8*x + 5" data-x0="0" data-tol="0.0001" data-max="15" title="Lecture Example (p. 6), x0 = 0">x&sup3; &minus; 8x + 5</button>
+              <button type="button" class="preset-chip" data-fn="e^(-x) - x" data-x0="0" data-tol="0.0001" data-max="15" title="Lecture Example (p. 8), x0 = 0">e&#8315;&#739; &minus; x</button>
+              <button type="button" class="preset-chip" data-fn="x^3 - 2*x^2 + 0.25*x + 0.75" data-x0="-1" data-tol="0.0001" data-max="15" title="Lecture Example (p. 9), x0 = -1">x&sup3; &minus; 2x&sup2; + 0.25x + 0.75</button>
+            </div>
+          </div>
+
+          <div class="params-grid">
+            <div class="field">
+              <label for="x0-input">Initial Guess <span class="math-inline">x<sub>0</sub></span></label>
+              <input type="number" id="x0-input" value="2" step="any" required />
+            </div>
+            <div class="field">
+              <label for="tol-input">Tolerance <span class="math-inline">&epsilon;</span></label>
+              <input type="number" id="tol-input" value="0.0001" step="any" min="1e-12" required />
+            </div>
+            <div class="field">
+              <label for="max-iter-input">Max Iterations</label>
+              <input type="number" id="max-iter-input" value="15" min="1" max="100" step="1" required />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="solve-btn" class="btn btn-primary">Compute Iterations</button>
+            <button type="button" id="reset-defaults-btn" class="btn btn-secondary">Reset Defaults</button>
+          </div>
+        </form>
+      </article>
+
+      <!-- Formula & Convergence Card -->
+      <article class="card formula-card">
+        <div class="card-header">
+          <h2>Formula &amp; Convergence Check</h2>
+          <span id="convergence-badge" class="status-badge badge-neutral">Pending</span>
+        </div>
+
+        <div class="formulas-grid">
+          <div class="formula-box">
+            <div class="formula-title">Iteration Formula</div>
+            <div class="math-display" aria-label="x sub i plus 1 equals x sub i minus f of x sub i divided by f prime of x sub i">
+              <span class="m-var">x<sub>i+1</sub></span>
+              <span class="m-op">=</span>
+              <span class="m-var">x<sub>i</sub></span>
+              <span class="m-op">&minus;</span>
+              <span class="m-frac">
+                <span class="m-num">f(x<sub>i</sub>)</span>
+                <span class="m-den">f&prime;(x<sub>i</sub>)</span>
+              </span>
+              <span class="m-comma">,</span>
+              <span class="m-note">i = 0, 1, 2, &hellip;</span>
+            </div>
+          </div>
+
+          <div class="formula-box">
+            <div class="formula-title">Convergence Condition at x<sub>0</sub></div>
+            <div class="math-display" aria-label="Absolute value of f of x0 times f double prime of x0 divided by f prime of x0 squared is less than 1">
+              <span class="m-abs">|</span>
+              <span class="m-frac">
+                <span class="m-num">f(x<sub>0</sub>)&middot;f&Prime;(x<sub>0</sub>)</span>
+                <span class="m-den">[f&prime;(x<sub>0</sub>)]<sup>2</sup></span>
+              </span>
+              <span class="m-abs">|</span>
+              <span class="m-op">&lt;</span>
+              <span class="m-num-lit">1</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="derivatives-strip">
+          <div class="deriv-item">
+            <span class="deriv-label">f&prime;(x) =</span>
+            <code id="deriv1-display" class="deriv-code">&mdash;</code>
+          </div>
+          <div class="deriv-item">
+            <span class="deriv-label">f&Prime;(x) =</span>
+            <code id="deriv2-display" class="deriv-code">&mdash;</code>
+          </div>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-tile">
+            <span class="metric-label">Condition Value at x<sub>0</sub></span>
+            <span id="conv-value-display" class="metric-value">&mdash;</span>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-label">Approx. Root</span>
+            <span id="root-display" class="metric-value">&mdash;</span>
+          </div>
+          <div class="metric-tile">
+            <span class="metric-label">Iterations</span>
+            <span id="iter-count-display" class="metric-value">&mdash;</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- Graph Section -->
+    <section class="card graph-card">
+      <div class="graph-toolbar">
+        <div class="graph-title-group">
+          <h2>Geometric Visualization</h2>
+          <span id="step-indicator" class="pill pill-accent">Step 0</span>
+        </div>
+
+        <div class="playback-controls" role="group" aria-label="Iteration playback controls">
+          <button type="button" id="btn-prev" class="btn btn-secondary btn-sm" title="Previous step">&larr; Prev</button>
+          <button type="button" id="btn-play" class="btn btn-primary btn-sm" title="Play or pause animation">&#9654; Play</button>
+          <button type="button" id="btn-next" class="btn btn-secondary btn-sm" title="Next step">Next &rarr;</button>
+          <button type="button" id="btn-show-all" class="btn btn-secondary btn-sm" title="Show all iterations">Show All</button>
+        </div>
+
+        <div class="zoom-controls" role="group" aria-label="Graph zoom controls">
+          <button type="button" id="btn-zoom-in" class="btn btn-ghost btn-icon" title="Zoom in" aria-label="Zoom in">+</button>
+          <button type="button" id="btn-zoom-out" class="btn btn-ghost btn-icon" title="Zoom out" aria-label="Zoom out">&minus;</button>
+          <button type="button" id="btn-zoom-reset" class="btn btn-ghost btn-sm" title="Fit view to iterations">Fit View</button>
+        </div>
+      </div>
+
+      <div class="canvas-wrapper" id="canvas-wrapper">
+        <canvas id="graph-canvas" aria-label="Interactive Newton-Raphson graph"></canvas>
+        <div id="canvas-tooltip" class="canvas-tooltip hidden"></div>
+      </div>
+
+      <div class="graph-legend">
+        <span class="legend-item"><span class="swatch swatch-curve"></span> Curve y = f(x)</span>
+        <span class="legend-item"><span class="swatch swatch-vertical"></span> Vertical to (x<sub>i</sub>, f(x<sub>i</sub>))</span>
+        <span class="legend-item"><span class="swatch swatch-tangent"></span> Active Tangent Slope f&prime;(x<sub>i</sub>)</span>
+        <span class="legend-item"><span class="swatch swatch-prev-tangent"></span> Earlier Tangents</span>
+        <span class="legend-item"><span class="swatch swatch-root"></span> Converged Root</span>
+      </div>
+    </section>
+
+    <!-- Active Step Substitution Card -->
+    <section class="card substitution-card">
+      <div class="card-header">
+        <h2>Active Step Substitution</h2>
+        <span id="sub-step-tag" class="pill">i = 0</span>
+      </div>
+      <div id="substitution-body" class="substitution-body">
+        <p class="muted">Enter a function and initial guess to inspect each substitution.</p>
+      </div>
+    </section>
+
+    <!-- Iteration Table -->
+    <section class="card table-card">
+      <div class="card-header">
+        <h2>Step-by-Step Iteration Table</h2>
+        <span class="table-hint">Click any row to highlight that step on the graph</span>
+      </div>
+      <div class="table-scroll">
+        <table class="iter-table">
+          <thead>
+            <tr>
+              <th>Iteration (i)</th>
+              <th>x<sub>i</sub></th>
+              <th>f(x<sub>i</sub>)</th>
+              <th>f&prime;(x<sub>i</sub>)</th>
+              <th>x<sub>i+1</sub></th>
+              <th>Error |x<sub>i+1</sub> &minus; x<sub>i</sub>|</th>
+            </tr>
+          </thead>
+          <tbody id="iter-table-body">
+            <tr>
+              <td colspan="6" class="empty-cell">No iterations computed yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Newton-Raphson Numerical Solver &middot; Pure HTML, CSS &amp; JavaScript &middot; Powered by Math.js</p>
+  </footer>
+
+  <script src="./script.js"></script>
+</body>
+</html>
